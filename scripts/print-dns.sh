@@ -54,15 +54,24 @@ while read -r domain; do
 
   ; DKIM
 EOF
-  found=""
-  for f in docker-data/dms/config/rspamd/dkim/*"$domain".public.txt \
-           docker-data/dms/config/opendkim/keys/"$domain"/mail.txt; do
-    [ -f "$f" ] || continue
-    found=1
-    echo "  ; selector 'mail' — from $f"
-    sed 's/^/  /' "$f"
-  done
-  [ -z "$found" ] && echo "  (no DKIM key yet — run: ./mailctl dkim)"
+  # Read the public keys from inside the container: on Linux the generated
+  # files are owned by root and unreadable for the host user.
+  dkim=""
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx mailserver; then
+    dkim=$(docker exec mailserver sh -c \
+      "cat /tmp/docker-mailserver/rspamd/dkim/*$domain.public.txt \
+           /tmp/docker-mailserver/opendkim/keys/$domain/mail.txt 2>/dev/null" 2>/dev/null || true)
+  fi
+  if [ -z "$dkim" ]; then
+    dkim=$(cat docker-data/dms/config/rspamd/dkim/*"$domain".public.txt \
+               docker-data/dms/config/opendkim/keys/"$domain"/mail.txt 2>/dev/null || true)
+  fi
+  if [ -n "$dkim" ]; then
+    echo "  ; selector 'mail'"
+    echo "$dkim" | sed 's/^/  /'
+  else
+    echo "  (no DKIM key yet — run: ./mailctl dkim)"
+  fi
 done < domains.txt
 
 bar

@@ -47,12 +47,17 @@ echo "==> 2/5 Starting containers"
 docker compose up -d
 
 echo "==> 3/5 Waiting for the mailserver to become healthy"
-for _ in $(seq 1 60); do
+ready=""
+for _ in $(seq 1 90); do
   if docker exec mailserver ss --listening --tcp 2>/dev/null | grep -qE 'LISTEN.+:smtp'; then
-    echo "    up"; break
+    ready=1; echo "    up"; break
   fi
   sleep 2
 done
+if [ -z "$ready" ]; then
+  echo "    WARNING: the mailserver did not open port 25 in time."
+  echo "    Check './mailctl logs mailserver' — continuing anyway."
+fi
 
 echo "==> 4/5 Creating the postmaster mailbox per domain"
 while read -r d; do

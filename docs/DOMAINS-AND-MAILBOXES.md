@@ -122,6 +122,19 @@ sockets and POSIX permissions that bind mounts on macOS/Windows cannot provide.
 
 Restore instructions are printed by that script.
 
+## File permissions
+
+The mailserver runs as root inside the container, so everything it writes under
+`docker-data/dms/config/` (account database, DKIM keys, TLS material) ends up
+owned by root on a Linux host. That is expected — private keys should not be
+readable by your login user.
+
+All scripts here account for it: `merge-dkim-config.sh` edits the rspamd config
+inside the container, `print-dns.sh` reads the DKIM public keys through
+`docker exec`, and `backup.sh` archives as root in a helper container. If you
+inspect those files by hand, use `sudo` or
+`docker exec mailserver cat /tmp/docker-mailserver/...`.
+
 ## Day-to-day operations
 
 ```bash

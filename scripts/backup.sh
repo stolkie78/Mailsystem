@@ -9,7 +9,12 @@ STAMP=$(date +%F-%H%M)
 mkdir -p "$DEST"
 
 echo "==> config, settings and webmail database"
-tar czf "$DEST/mail-config-$STAMP.tar.gz" \
+# Runs in a container as root: DKIM private keys and TLS material are owned by
+# root once the mailserver has started, so a plain host-side tar would fail.
+docker run --rm \
+  -v "$PWD":/src:ro \
+  -v "$PWD/$DEST":/backup \
+  alpine tar czf "/backup/mail-config-$STAMP.tar.gz" -C /src \
   docker-data/dms/config docker-data/roundcube/db \
   .env mailserver.env domains.txt config
 
