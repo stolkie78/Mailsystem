@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# mailctl - thin wrapper around docker-mailserver's `setup` command.
+#
+#   ./mailctl account add info@gsit.nl 'S3cret!'
+#   ./mailctl alias add sales@gsit.nl info@gsit.nl
+#   ./mailctl forward add info@stolkies.com someone@gmail.com
+#   ./mailctl dkim
+#   ./mailctl dns          # print the DNS records you need to publish
+set -euo pipefail
+
+cd "$(dirname "$0")"
+CONTAINER=mailserver
+DOMAINS_FILE=domains.txt
+
+# use a TTY only when we actually have one (so the script also works in pipes)
+DOCKER_TTY=$([ -t 0 ] && [ -t 1 ] && echo "-ti" || echo "-i")
+dms() { docker exec $DOCKER_TTY "$CONTAINER" setup "$@"; }
+
+domains() { grep -vE '^\s*(#|$)' "$DOMAINS_FILE" | tr -d '\r'; }
+
+usage() {
+  cat <<'EOF'
+Usage: ./mailctl <command> [args]
+
+Accounts
+  account add <user@domain> [password]   Create a mailbox (prompts if no password)
+  account del <user@domain>              Delete a mailbox
+  account password <user@domain>         Change a password
+  account list                           List mailboxes
+  quota set <user@domain> <size>         e.g. 5G   |   quota del <user@domain>
+
+Aliases & forwarding (both use Postfix virtual aliases)
+  alias add <alias@domain> <target>      e.g. sales@gsit.nl -> info@gsit.nl
+  alias del <alias@domain> <target>
+  alias list
+  forward add <addr@domain> <external>   Alias to an external address
+  catchall <domain> <target>             Route all unknown@domain to target
+
+Domains
+  domain list                            Domains derived from existing accounts
+  dkim                                   Generate DKIM keys for all domains in domains.txt
+  dns                                    Print required DNS records for all domains
+
+Service
+  up | down | restart | logs | status | shell
+  debug                                  Run docker-mailserver's self-check
+EOF
+}
+
+require_running() {
+  docker ps --format '{{.Names}}' | grep -qx "$CONTAINER" || {
+    echo "The '$CONTAINER' container is not running. Start it with: ./mailctl up" >&2
+    exit 1
+  }
+}
+
+cmd=${1:-help}; shift || true
+
+case "$cmd" in
+  account)
+    require_running
+    sub=${1:-list}; shift || true
+    case "$sub" in
+      add)      dms email add "$@" ;;
+      del)      dms email del "$@" ;;
+      password) dms email update "$@" ;;
+      list)     dms email list ;;
+      *) echo "unknown: account $sub" >&2; exit 1 ;;
+    esac ;;
+  quota)
+    require_running
+    sub=${1:-list}; shift || true
+    dms quota "$sub" "$@" ;;
+  alias|forward)
+    require_running
+    sub=${1:-list}; shift || true
+    case "$sub" in
+      add)  dms alias add "$@" ;;
+      del)  dms alias del "$@" ;;
+      list) dms alias list ;;
+      *) echo "unknown: $cmd $sub" >&2; exit 1 ;;
+    esac ;;
+  catchall)
+    require_running
+    [ $# -eq 2 ] || { echo "usage: ./mailctl catchall <domain> <target>" >&2; exit 1; }
+    dms alias add "@$1" "$2" ;;
+  domain)
+    require_running
+    dms email list | sed -E 's/.*\* ([^ ]+).*/\1/' | awk -F@ '{print $2}' | sort -u ;;
+  dkim)
+    require_running
+    while read -r d; do
+      echo "Generating DKIM key (2048 bit) for $d"
+      docker exec "$CONTAINER" setup config dkim domain "$d" keysize 2048
+    done < <(domains)
+    ./scripts/merge-dkim-config.sh >/dev/null
+    docker compose restart mailserver >/dev/null
+    echo "Keys written to docker-data/dms/config/rspamd/dkim/"
+    ./mailctl dns ;;
+  dns)
+    ./scripts/print-dns.sh ;;
+  up)      docker compose up -d ;;
+  down)    docker compose down ;;
+  restart) docker compose restart ;;
+  logs)    docker compose logs -f "${1:-}" ;;
+  status)  docker compose ps ;;
+  shell)   docker exec -ti "$CONTAINER" bash ;;
+  debug)   require_running; docker exec $DOCKER_TTY "$CONTAINER" supervisorctl status ;;
+  help|-h|--help) usage ;;
+  *) usage; exit 1 ;;
+esac

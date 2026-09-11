@@ -1,0 +1,56 @@
+services:
+  mailserver:
+    image: ghcr.io/docker-mailserver/docker-mailserver:15.0.2
+    container_name: mailserver
+    hostname: ${MAIL_HOSTNAME:-mail.example.com}
+    env_file: mailserver.env
+    ports:
+      - "25:25"     # SMTP (inbound from other servers)
+      - "465:465"   # ESMTP implicit TLS (submission)
+      - "587:587"   # ESMTP explicit TLS (submission)
+      - "993:993"   # IMAPS
+      - "4190:4190" # ManageSieve (filters / forwarding rules)
+    volumes:
+      # Named volumes: Postfix/Dovecot need real POSIX semantics (unix sockets,
+      # chmod) that bind mounts on macOS/Windows cannot provide.
+      - mail-data:/var/mail/
+      - mail-state:/var/mail-state/
+      - mail-logs:/var/log/mail/
+      - ./docker-data/dms/config/:/tmp/docker-mailserver/
+      - ./certs/:/etc/letsencrypt/:ro
+      - /etc/localtime:/etc/localtime:ro
+    restart: always
+    stop_grace_period: 1m
+    cap_add:
+      - NET_ADMIN
+    healthcheck:
+      test: "ss --listening --tcp | grep -P 'LISTEN.+:smtp' || exit 1"
+      timeout: 3s
+      retries: 0
+
+  roundcube:
+    image: roundcube/roundcubemail:1.6.9-apache
+    container_name: roundcube
+    depends_on:
+      - mailserver
+    ports:
+      - "${WEBMAIL_PORT:-8080}:80"
+    environment:
+      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://mailserver
+      ROUNDCUBEMAIL_DEFAULT_PORT: "993"
+      ROUNDCUBEMAIL_SMTP_SERVER: tls://mailserver
+      ROUNDCUBEMAIL_SMTP_PORT: "587"
+      ROUNDCUBEMAIL_DB_TYPE: sqlite
+      ROUNDCUBEMAIL_PLUGINS: archive,zipdownload,managesieve,markasjunk,newmail_notifier,filesystem_attachments
+      ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE: 25M
+      ROUNDCUBEMAIL_ASPELL_DICTS: en,nl
+    volumes:
+      - ./docker-data/roundcube/db:/var/roundcube/db
+      - ./docker-data/roundcube/www:/var/www/html
+      - ./config/roundcube-custom.inc.php:/var/roundcube/config/custom.inc.php:ro
+    restart: always
+
+volumes:
+  mail-data:
+  mail-state:
+  mail-logs:

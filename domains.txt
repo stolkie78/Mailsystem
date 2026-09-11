@@ -1,0 +1,3 @@
+# One domain per line. Used by ./mailctl dkim and ./mailctl dns
+gsit.nl
+stolkies.com
