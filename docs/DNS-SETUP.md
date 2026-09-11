@@ -1,7 +1,7 @@
 # DNS setup
 
 Everything below assumes one mail host, `mail.gsit.nl`, that serves **both**
-`gsit.nl` and `stolkies.com`. That is the simplest working setup: one server,
+`gsit.nl` and `setbaas.nl`. That is the simplest working setup: one server,
 one certificate, one PTR record, any number of mail domains.
 
 Generate a ready-to-paste list at any time with:
@@ -19,7 +19,7 @@ Generate a ready-to-paste list at any time with:
 | A server with a **static public IPv4** | mail hosts must not move around |
 | **Port 25 outbound open** | most consumer ISPs and some clouds (AWS, Azure, GCP, Hetzner Cloud by default) block it — request an unblock |
 | Ability to set **reverse DNS (PTR)** | receivers reject mail from IPs whose PTR doesn't match the HELO name |
-| Access to the DNS zones of `gsit.nl` and `stolkies.com` | to publish MX/SPF/DKIM/DMARC |
+| Access to the DNS zones of `gsit.nl` and `setbaas.nl` | to publish MX/SPF/DKIM/DMARC |
 
 ---
 
@@ -45,27 +45,27 @@ Check: `dig +short -x 203.0.113.10` must return `mail.gsit.nl.`
 
 ## 2. Per-domain records
 
-Repeat this block for `gsit.nl` and for `stolkies.com`. Only the zone changes;
+Repeat this block for `gsit.nl` and for `setbaas.nl`. Only the zone changes;
 both point at the same host.
 
 ### 2.1 MX — where inbound mail goes
 
 ```dns
 gsit.nl.        3600  IN  MX  10  mail.gsit.nl.
-stolkies.com.   3600  IN  MX  10  mail.gsit.nl.
+setbaas.nl.   3600  IN  MX  10  mail.gsit.nl.
 ```
 
-Nothing else is needed on `stolkies.com` for the host itself — it just borrows
+Nothing else is needed on `setbaas.nl` for the host itself — it just borrows
 `mail.gsit.nl`. (If you prefer a branded name, add
-`mail.stolkies.com. IN CNAME mail.gsit.nl.` and use it as the MX target only if
+`mail.setbaas.nl. IN CNAME mail.gsit.nl.` and use it as the MX target only if
 it resolves to an A record — MX targets may not be CNAMEs per RFC 2181, so
-prefer an A record: `mail.stolkies.com. IN A 203.0.113.10`.)
+prefer an A record: `mail.setbaas.nl. IN A 203.0.113.10`.)
 
 ### 2.2 SPF — who may send
 
 ```dns
 gsit.nl.        3600  IN  TXT  "v=spf1 mx a:mail.gsit.nl -all"
-stolkies.com.   3600  IN  TXT  "v=spf1 mx a:mail.gsit.nl -all"
+setbaas.nl.   3600  IN  TXT  "v=spf1 mx a:mail.gsit.nl -all"
 ```
 
 * `mx` authorises the hosts in your MX record, `a:mail.gsit.nl` the mail host itself.
@@ -88,7 +88,7 @@ public records. They look like:
 ```dns
 mail._domainkey.gsit.nl.       3600 IN TXT ( "v=DKIM1; k=rsa; "
   "p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA..." )   ; selector "mail"
-mail._domainkey.stolkies.com.  3600 IN TXT ( "v=DKIM1; k=rsa; "
+mail._domainkey.setbaas.nl.  3600 IN TXT ( "v=DKIM1; k=rsa; "
   "p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA..." )
 ```
 
@@ -106,7 +106,7 @@ Start permissive, then tighten:
 
 ```dns
 _dmarc.gsit.nl.       3600 IN TXT "v=DMARC1; p=none; rua=mailto:postmaster@gsit.nl; fo=1"
-_dmarc.stolkies.com.  3600 IN TXT "v=DMARC1; p=none; rua=mailto:postmaster@stolkies.com; fo=1"
+_dmarc.setbaas.nl.  3600 IN TXT "v=DMARC1; p=none; rua=mailto:postmaster@setbaas.nl; fo=1"
 ```
 
 Roll-out schedule:
@@ -124,7 +124,7 @@ autodiscover.gsit.nl.        3600 IN CNAME mail.gsit.nl.
 autoconfig.gsit.nl.          3600 IN CNAME mail.gsit.nl.
 _imaps._tcp.gsit.nl.         3600 IN SRV   0 1 993 mail.gsit.nl.
 _submission._tcp.gsit.nl.    3600 IN SRV   0 1 587 mail.gsit.nl.
-; same four for stolkies.com
+; same four for setbaas.nl
 ```
 
 ### 2.6 MTA-STS / TLS-RPT (optional hardening, add once mail flows)
@@ -153,15 +153,15 @@ autodiscover.gsit.nl.     IN CNAME mail.gsit.nl.
 autoconfig.gsit.nl.       IN CNAME mail.gsit.nl.
 ```
 
-**stolkies.com**
+**setbaas.nl**
 
 ```dns
-stolkies.com.                  IN MX    10 mail.gsit.nl.
-stolkies.com.                  IN TXT   "v=spf1 mx a:mail.gsit.nl -all"
-mail._domainkey.stolkies.com.  IN TXT   "v=DKIM1; k=rsa; p=<from ./mailctl dkim>"
-_dmarc.stolkies.com.           IN TXT   "v=DMARC1; p=none; rua=mailto:postmaster@stolkies.com; fo=1"
-autodiscover.stolkies.com.     IN CNAME mail.gsit.nl.
-autoconfig.stolkies.com.       IN CNAME mail.gsit.nl.
+setbaas.nl.                  IN MX    10 mail.gsit.nl.
+setbaas.nl.                  IN TXT   "v=spf1 mx a:mail.gsit.nl -all"
+mail._domainkey.setbaas.nl.  IN TXT   "v=DKIM1; k=rsa; p=<from ./mailctl dkim>"
+_dmarc.setbaas.nl.           IN TXT   "v=DMARC1; p=none; rua=mailto:postmaster@setbaas.nl; fo=1"
+autodiscover.setbaas.nl.     IN CNAME mail.gsit.nl.
+autoconfig.setbaas.nl.       IN CNAME mail.gsit.nl.
 ```
 
 ---
@@ -198,7 +198,7 @@ to that hostname regardless of their email domain.
 
 ```bash
 dig +short MX gsit.nl                       # -> mail.gsit.nl.
-dig +short MX stolkies.com                  # -> mail.gsit.nl.
+dig +short MX setbaas.nl                  # -> mail.gsit.nl.
 dig +short TXT gsit.nl                      # -> v=spf1 ...
 dig +short TXT mail._domainkey.gsit.nl      # -> v=DKIM1 ...
 dig +short TXT _dmarc.gsit.nl               # -> v=DMARC1 ...
@@ -212,7 +212,7 @@ End-to-end:
    aim for 10/10.
 2. Or mail `check-auth@verifier.port25.com` and read the reply: SPF, DKIM and
    DMARC must all say **pass**.
-3. Send a mail *to* `postmaster@stolkies.com` from Gmail and confirm it lands in
+3. Send a mail *to* `postmaster@setbaas.nl` from Gmail and confirm it lands in
    the webmail inbox.
 
 Common failures:

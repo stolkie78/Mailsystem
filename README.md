@@ -1,6 +1,6 @@
 # Mailsystem
 
-A self-hosted mail server in Docker for **gsit.nl** and **stolkies.com**.
+A self-hosted mail server in Docker for **gsit.nl** and **setbaas.nl**.
 
 | Component | Image | Role |
 |---|---|---|
@@ -17,7 +17,7 @@ verification; brute-force protection; quotas.
 compose.yaml                 the two services
 .env                         MAIL_HOSTNAME, webmail port
 mailserver.env               docker-mailserver settings
-domains.txt                  mail domains (gsit.nl, stolkies.com)
+domains.txt                  mail domains (gsit.nl, setbaas.nl)
 setup.sh                     first-run bootstrap
 mailctl                      admin CLI (accounts, aliases, forwarding, DKIM, DNS)
 config/                      Roundcube overrides
@@ -42,7 +42,7 @@ $EDITOR .env                 # MAIL_HOSTNAME=mail.gsit.nl
 
 # 4. create mailboxes
 ./mailctl account add info@gsit.nl
-./mailctl account add info@stolkies.com
+./mailctl account add info@setbaas.nl
 
 # 5. log in to webmail
 open http://localhost:8080
@@ -68,7 +68,7 @@ open http://localhost:8080
 ./mailctl account add info@gsit.nl 'password'      # new mailbox
 ./mailctl alias add sales@gsit.nl info@gsit.nl     # extra address
 ./mailctl forward add jobs@gsit.nl you@gmail.com   # forward to external
-./mailctl catchall stolkies.com info@stolkies.com  # catch-all
+./mailctl catchall setbaas.nl info@setbaas.nl  # catch-all
 ./mailctl dkim                                     # (re)generate DKIM keys
 ./mailctl dns                                      # DNS records to publish
 ./mailctl logs mailserver                          # tail logs

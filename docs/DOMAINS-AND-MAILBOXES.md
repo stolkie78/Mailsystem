@@ -7,16 +7,16 @@ All commands run from the project root. `./mailctl` wraps docker-mailserver's
 ## Adding a mail domain
 
 There is no "create domain" step — a domain exists as soon as a mailbox exists
-for it. Adding `stolkies.com` is therefore:
+for it. Adding `setbaas.nl` is therefore:
 
 ```bash
-echo "stolkies.com" >> domains.txt          # so DKIM/DNS helpers know about it
-./mailctl account add postmaster@stolkies.com
+echo "setbaas.nl" >> domains.txt          # so DKIM/DNS helpers know about it
+./mailctl account add postmaster@setbaas.nl
 ./mailctl dkim                              # (re)generate DKIM for all domains
 ./mailctl dns                               # publish the printed records
 ```
 
-`gsit.nl` and `stolkies.com` are already in `domains.txt` and are created by
+`gsit.nl` and `setbaas.nl` are already in `domains.txt` and are created by
 `./setup.sh`.
 
 ## Mailboxes
@@ -60,16 +60,16 @@ final destination. Keeping a local copy avoids surprises:
 ### 2. Catch-all for a whole domain
 
 ```bash
-./mailctl catchall stolkies.com info@stolkies.com
+./mailctl catchall setbaas.nl info@setbaas.nl
 ```
 
-Everything addressed to an unknown mailbox `@stolkies.com` lands in
-`info@stolkies.com`. Convenient, but it attracts spam — prefer explicit aliases.
+Everything addressed to an unknown mailbox `@setbaas.nl` lands in
+`info@setbaas.nl`. Convenient, but it attracts spam — prefer explicit aliases.
 
 ### 3. Cross-domain
 
 ```bash
-./mailctl alias add info@stolkies.com info@gsit.nl
+./mailctl alias add info@setbaas.nl info@gsit.nl
 ```
 
 ### 4. User-managed forwarding (Roundcube)
